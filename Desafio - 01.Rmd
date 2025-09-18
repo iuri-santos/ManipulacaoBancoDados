@@ -1,0 +1,53 @@
+---
+title: "Desafio_01"
+author: "Iuri Santos Oliveira"
+date: "2025-08-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Desafio
+
+```{r}
+library(readr)
+```
+
+```{r}
+inicio <- Sys.time()
+
+flights <- read.csv(unz('../dados/flights.csv.zip', 'flights.csv'))
+
+fim <- Sys.time()
+
+fim - inicio
+```
+ 
+```{r}
+inicio <- Sys.time()
+
+flights1 <- read_csv('../dados/flights.csv.zip', 'flights.csv')
+
+fim <- Sys.time()
+
+fim - inicio
+```
+
+```{python}
+import pandas as pd
+import time
+
+ini = time.time()
+
+flights3 = pd.read_csv("../dados/flights.csv.zip",compression="zip",header=0,sep=",", low_memory=False)
+
+fim = time.time()
+
+fim - ini
+
+```
+
+
+
