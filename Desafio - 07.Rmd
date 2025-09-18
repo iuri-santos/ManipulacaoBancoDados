@@ -1,0 +1,215 @@
+---
+title: "Desafio - 07"
+author: "Iuri Santos Oliveira - RA: 194610"
+date: "2025-09-18"
+output: pdf_document
+---
+## Atividade
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+if(!"discoCopy.db" %in% list.files("../dados/")){  # Se não houver o arquivo, ele será criado
+file.copy("../dados/disco.db","../dados/discoCopy.db")} # Modificaremos esse arquivo
+```
+
+```{r}
+db <- dbConnect(SQLite(),"../dados/discoCopy.db") 
+```
+
+```{r}
+dbListTables(db) # Lista as tabelas
+```
+
+```{r}
+dbExecute(db,
+"CREATE TABLE instruments
+(AlbumId INTEGER,
+TrackId INTEGER,
+ElectricGuitar INTEGER,
+Singer INTEGER,
+Trumpet INTEGER)") # Cria uma tabela chamada "instruments" com as colunas e o seus tipos dentro dos parênteses
+```
+
+```{r}
+dbListFields(db,
+'instruments') # Listar colunas da tabela
+```
+
+```{r}
+dbExecute(db,
+"DROP TABLE instruments") # Exclue a tabela
+```
+
+```{r}
+aname = "Gilberto Gil"
+sql = paste0("SELECT ArtistId FROM artists ", "WHERE Name = '", aname, "'")
+aId = dbGetQuery(db, sql)
+sql = paste('SELECT Title FROM albums', 'WHERE ArtistId =', aId)
+dbGetQuery(db, sql)
+# Aqui foram uma coluna de uma tabela com determinado nome de uma artista
+# Caso utilizase {aname <- "Gilberto Gil'; DROP TABLE 'albums"} o banco de dados seria destruído
+
+```
+```{r}
+sql = paste("SELECT ArtistId FROM artists", "WHERE Name = ?")
+query <- dbSendQuery(db, sql)
+dbBind(query, list("Gilberto Gil"))
+aId <- dbFetch(query)
+dbClearResult(query)
+# Segundo passo interno, não deve causar problema
+sql = paste('SELECT Title FROM albums', 'WHERE ArtistId =', aId)
+dbGetQuery(db, sql)
+
+# Uma outra forma de fazer o código acima
+```
+
+```{r}
+dbExecute(db,
+"CREATE TABLE instruments
+(AlbumId INTEGER,
+TrackId INTEGER,
+ElectricGuitar INTEGER,
+Singer INTEGER,
+Trumpet INTEGER)")
+
+dbListFields(db, 'instruments')
+
+# Listar as colunas da tabela criada
+```
+```{r}
+# Eu Tu Eles: AlbumId 85,
+sql = paste('SELECT TrackId, Name FROM tracks','WHERE AlbumId = 85')
+dbGetQuery(db, sql) %>% head
+
+# Selecionar 2 colunas do album 85
+```
+
+```{r}
+dbExecute(db,
+"INSERT INTO instruments
+VALUES ('85','1075', 0, 1, 0),('85','1078', 0, 1, 0); ")
+
+# Insere valores para cada linha, representada por parênteses, números para as colunas
+```
+
+```{r}
+dbGetQuery(db,"SELECT * FROM instruments")
+# Seleciona a tabela "instruments'
+```
+
+```{r}
+dbWriteTable(db,"mtcars", mtcars)
+dbListTables(db)
+# Cria uma tebela chamada "mtcars"e insere o banco de dados mtcars do R (se a tabela já existe, ela será substituída)
+# Mostra os nomes das colunas
+```
+```{r}
+dbGetQuery(db,"SELECT * FROM mtcars") %>% head(3)
+
+# Selecionou a tabela mtcars e lê as 3 primeiras linhas
+```
+
+```{r}
+# Será criada uma nova tabela em que cada coluna será atribuíada um valor numérico aleatório com até 2 casas decimais
+theAvgCar <- mtcars %>% summarise_all(function(x) round(mean(x), 2))
+theAvgCar
+```
+
+```{r}
+# Na tabela mtcars insere a tabela theAvgCar e o 'append' coloca os dados da tabela no final
+dbWriteTable(db,"mtcars", theAvgCar, append = TRUE)
+
+# Aqui a tabela mtcars de db é selecionada e mostra as 3 últimas linhas
+dbGetQuery(db, "SELECT * FROM mtcars") %>% tail(3)
+```
+
+```{r}
+# Substirui a tabela mtcars para o banco de dados original e se ela já existir, será substitída pela função "overwrite"
+dbWriteTable(db,"mtcars", mtcars, overwrite = TRUE)
+
+# Seleciona as 3 últimas linhas da tabela mtcars
+dbGetQuery(db,"SELECT * FROM mtcars") %>% tail(3)
+```
+
+```{r}
+# Envia uma consulta SQL para selecionar todos os carros com 4 cilindros
+res <- dbSendQuery(db, "SELECT * FROM mtcars WHERE cyl = 4")
+# Há um loop enquanto houver resultados para buscar os resultados em chunks de 5 linhas por vez
+while(!dbHasCompleted(res)){
+  chunk <- dbFetch(res, n = 5)
+  print(nrow(chunk))
+}
+
+dbClearResult(res)
+```
+
+```{r}
+dbDisconnect(db)
+# Verifica se o arquivo do banco copy existe no diretório e remove o arquivo do banco copy
+if("discoCopy.db" %in% list.files("../dados/")){
+file.remove("../dados/discoCopy.db")
+}
+```
+
+```{r}
+# Lê o arquivo CSV de aeroportos com tipos de colunas específicos
+airports <- read_csv("../dados/airports.csv", col_types = "cccccdd")
+
+# Lê o arquivo CSV de companhias aéreas com tipos de colunas específicos
+airlines <- read_csv("../dados/airlines.csv", col_types = "cc")
+
+# Conecta a um novo banco de dados SQLite chamado "air.db"
+air <- dbConnect(SQLite(), dbname="../dados/air.db")
+
+# Escreve os dados de aeroportos em uma tabela no banco
+dbWriteTable(air, name = "airports", airports)
+
+# Escreve os dados de companhias aéreas em uma tabela no banco
+dbWriteTable(air, name = "airlines", airlines)
+
+# Lista as tabelas
+dbListTables(air)
+```
+
+```{r}
+#  Destroe a conexão e a tabela
+dbDisconnect(air)
+if("air.db" %in% list.files("../dados/")){
+file.remove("../dados/air.db")
+}
+
+```
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+library(dbplyr)
+
+# Mostrando diferença entre tidyverse e dbplyr
+db <- dbConnect(SQLite(),"../dados/disco.db") # original
+tracks <- tbl(db,"tracks") # dplyr
+tracks %>% head(3)
+```
+
+```{r}
+# Agrupa por AlbumId e calcula médias
+meanTracks <- tracks %>%
+group_by(AlbumId) %>%
+summarise(AvLen = mean(Milliseconds, na.rm = TRUE),
+AvCost = mean(UnitPrice, na.rm = TRUE))
+
+meanTracks
+```
+
+```{r}
+# Exibe o código SQL equivalente que será executado no banco
+meanTracks %>% show_query()
+```
+
+```{r}
+ # Converte o resultado dbplyr para dataframe normal
+
+mT <- meanTracks %>% collect()
+mT
+```
