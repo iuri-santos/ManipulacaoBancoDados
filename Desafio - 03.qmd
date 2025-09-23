@@ -1,0 +1,40 @@
+---
+title: "Desafio - 03"
+author: "Iuri Santos Oliveira"
+format: pdf
+editor: visual
+---
+
+## Dados de TC!xi de Nova York
+
+O conjunto de dados obtido pelo link \textcolor{blue}{\url{https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2023-01.parquet}} representam, aproximadamente, 3 milhC5es de corridas de tC!xis em Nova York durante o perC-odo de janeiro de 2023. As variC!veis presentes neste conjunto de dados sC#o: Identificadores (ID da empresa de tC!xi), geolocalizaC'C#o, mC)tricas financeiras (como valor de gorjeta, pedC!gio) e formas de pagamento. O cC3digo para a leitura dos dados foi a seguinte:
+
+```{r, eval = F}
+    library(arrow) # Carrega o pacote arrow
+    
+    url <- "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2023-01
+    .parquet"
+    dados_voos <- read_parquet(url) # LC* o arquivo Parquet diretamente da URL
+    
+    dados_voos_df <- as.data.frame(dados_voos) # Converte para Data Frame
+    dados_voos_df
+```
+
+Para a leitura do banco de dados, utilizou-se o pacote arrow, uma ferramenta para trabalhar com grandes conjuntos de dados de forma eficiente, podendo ler arquivos no formato parquet. Basicamente, o cC3digo lC\* o arquivo diretamente da URL sem download prC)vio, depois detecta o formato, identifica a estrutura das colunas, carrega-os e os converte em Data Frame.
+
+## Dados de Criptomoedas da CoinGecko
+
+No conjunto de dados proveniente do link \textcolor{blue}{\url{https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false}} lidamos com a CoinGecko, uma interface de programaC'C#o de aplicativo (API) na qual fornece informaC'C5es sobre criptomoedas e ativos digitais (NFTs) para desenvolvedores, traders e projetos. As variC!veis presentes neste conjunto de dados sC#o: mC)tricas de mercado (preC'o atual da moeda, volume de negociaC'C5es) e os diferentes tipos de variaC'C5es (variaC'C#o percentual do prC3prio preC'o da moeda).
+
+```{r, eval = F}
+    library(jsonlite) # Carrega o pacote jsonlite
+    
+    url <- "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=
+    market_cap_desc&per_page=10&page=1&sparkline=false"
+    dados_cripto <- fromJSON(url) # Faz requisiC'C#o HTTP e converte JSON para lista
+    
+    dados_cripto_df <- as.data.frame(dados_cripto) # Converte a lista para Data Frame
+    dados_cripto_df
+```
+
+Para esse conjunto de dados, o cC3digo carrega o pacote especializado em JSON, faz uma requisiC'C#o HTTP GET para a URL, recebe a resposta em formato JSON e converte a lista aninhada em Data Frame.
