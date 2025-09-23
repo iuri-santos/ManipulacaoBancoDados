@@ -1,0 +1,192 @@
+---
+title: "Desafio - 08"
+author: "Iuri Santos Oliveira"
+format: html
+editor: visual
+---
+
+## Atividade
+```{r}
+data_hora_geracao <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+cat("Relatório gerado em:", data_hora_geracao, "\n\n")
+```
+
+1.  Baixe o arquivo `uwmadison.sqlite3`. Conecte-se a ele usando o pacote `RSQLite`, armazenando a conexão em uma variável `conn`.
+
+```{r}
+library(RSQLite)
+conn <- dbConnect(SQLite(), dbname = 'database.sqlite3')
+dbListTables(conn)
+```
+
+2.  Quem são e quantos são os professores que lecionaram disciplinas cujo tópico era estatística (`subjects.abbreviation='STAT`');
+
+```{r}
+sql <- "
+SELECT DISTINCT 
+    i.name as professor_nome,
+    COUNT(DISTINCT s.uuid) as total_disciplinas_stat
+FROM instructors i
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections s ON t.section_uuid = s.uuid
+JOIN course_offerings co ON s.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT'
+GROUP BY i.name
+ORDER BY total_disciplinas_stat DESC;"
+
+# Executar a consulta
+professores <- dbGetQuery(conn, sql)
+
+professores
+nrow(professores)
+
+# SELECT DISTINCT - Seleciona apenas nomes únicos de professores, evitando duplicatas
+# i.name as professor_nome - Pega o nome do professor da tabela instructors e renomeia a coluna
+# COUNT(DISTINCT s.uuid) - Conta quantas seções/turmas únicas de STAT cada professor lecionou
+# FROM instructors i - Começa pela tabela de professores (alias 'i' para facilitar)
+# JOIN teachings - Relaciona professores com as aulas que ministraram
+# JOIN sections - Conecta com as seções/turmas específicas
+# JOIN course_offerings - Liga com as ofertas de curso
+# JOIN subject_memberships - Relaciona ofertas de curso com as disciplinas
+# JOIN subjects - Acessa a tabela de disciplinas para ver a abreviação
+# WHERE sub.abbreviation = 'STAT' - Filtra apenas disciplinas de Estatística
+# GROUP BY i.name - Agrupa resultados por professor para fazer a contagem
+# ORDER BY total_disciplinas_stat DESC - Ordena do professor com mais STAT para o com menos
+# dbGetQuery(conn, sql) - Executa a consulta SQL no banco de dados conectado
+
+```
+
+3.  O GPA americano é definido numa escala de 0 a 4, em que A = 4, AB = 3.5, B = 3, BC = 2.5, C = 2, D = 1 e F = 0. Determinando a nota média de cada oferecimento pela ponderação da quantidade de alunos em cada extrato com os valores numéricos de cada conceito, indique (no que se referente a disciplinas no assunto de estatística):
+
+```{r}
+# --- 1) Professores: calcular média de notas (GPA) por professor e retornar todos os empates min/max
+sql_professores <- "
+WITH estat_prof AS (
+  SELECT
+    i.id AS professor_id,
+    i.name AS professor_nome,
+    SUM( (gd.a_count*4.0)  + (gd.ab_count*3.5) + (gd.b_count*3.0) + (gd.bc_count*2.5) +
+         (gd.c_count*2.0)  + (gd.d_count*1.0)  + (gd.f_count*0.0) ) AS total_pontos,
+    SUM( (gd.a_count) + (gd.ab_count) + (gd.b_count) + (gd.bc_count) +
+         (gd.c_count) + (gd.d_count) + (gd.f_count) ) AS total_alunos
+  FROM subjects sub
+  JOIN subject_memberships sm ON sm.subject_code = sub.code
+  JOIN course_offerings co ON co.uuid = sm.course_offering_uuid
+  JOIN sections s ON s.course_offering_uuid = co.uuid
+  JOIN teachings t ON t.section_uuid = s.uuid
+  JOIN instructors i ON i.id = t.instructor_id
+  JOIN grade_distributions gd ON gd.course_offering_uuid = co.uuid AND gd.section_number = s.number
+  WHERE sub.abbreviation = 'STAT'
+  GROUP BY i.id
+),
+prof_media AS (
+  SELECT
+    professor_id,
+    professor_nome,
+    total_alunos,
+    total_pontos,
+    CASE WHEN total_alunos > 0 THEN total_pontos * 1.0 / total_alunos ELSE NULL END AS media_gpa
+  FROM estat_prof
+  WHERE total_alunos > 0
+)
+SELECT * FROM prof_media
+ORDER BY media_gpa ASC;
+"
+
+professores_todos <- dbGetQuery(conn, sql_professores)
+if (nrow(professores_todos) > 0) {
+  gpa_min <- min(professores_todos$media_gpa, na.rm = TRUE)
+  gpa_max <- max(professores_todos$media_gpa, na.rm = TRUE)
+  professores_dificeis <- subset(professores_todos, media_gpa == gpa_min) # mais difíceis
+  professores_faceis   <- subset(professores_todos, media_gpa == gpa_max) # mais fáceis
+} else {
+  professores_dificeis <- professores_todos
+  professores_faceis   <- professores_todos
+}
+
+# --- 2) Disciplinas: calcular média de notas (GPA) por disciplina e retornar empates
+sql_disciplinas <- "
+WITH ofertas_estat AS (
+  SELECT
+    co.uuid AS oferta_id,
+    co.course_uuid,
+    SUM( (gd.a_count*4.0)  + (gd.ab_count*3.5) + (gd.b_count*3.0) + (gd.bc_count*2.5) +
+         (gd.c_count*2.0)  + (gd.d_count*1.0)  + (gd.f_count*0.0) ) AS total_pontos,
+    SUM( (gd.a_count) + (gd.ab_count) + (gd.b_count) + (gd.bc_count) +
+         (gd.c_count) + (gd.d_count) + (gd.f_count) ) AS total_alunos
+  FROM course_offerings co
+  JOIN subject_memberships sm ON sm.course_offering_uuid = co.uuid
+  JOIN subjects sub ON sub.code = sm.subject_code
+  JOIN grade_distributions gd ON gd.course_offering_uuid = co.uuid
+  WHERE sub.abbreviation = 'STAT'
+  GROUP BY co.uuid
+),
+disc_agg AS (
+  SELECT
+    co.course_uuid,
+    c.name AS disciplina_nome,
+    SUM(oe.total_pontos) AS soma_pontos,
+    SUM(oe.total_alunos) AS soma_alunos,
+    CASE WHEN SUM(oe.total_alunos) > 0 THEN SUM(oe.total_pontos) * 1.0 / SUM(oe.total_alunos) ELSE NULL END AS media_gpa
+  FROM ofertas_estat oe
+  JOIN course_offerings co ON co.uuid = oe.oferta_id
+  JOIN courses c ON c.uuid = co.course_uuid
+  GROUP BY co.course_uuid
+)
+SELECT * FROM disc_agg
+ORDER BY media_gpa ASC;
+"
+
+disciplinas_todas <- dbGetQuery(conn, sql_disciplinas)
+if (nrow(disciplinas_todas) > 0) {
+  gpa_min_disc <- min(disciplinas_todas$media_gpa, na.rm = TRUE)
+  gpa_max_disc <- max(disciplinas_todas$media_gpa, na.rm = TRUE)
+  disciplinas_dificeis <- subset(disciplinas_todas, media_gpa == gpa_min_disc) # mais difíceis
+  disciplinas_faceis   <- subset(disciplinas_todas, media_gpa == gpa_max_disc) # mais fáceis
+} else {
+  disciplinas_dificeis <- disciplinas_todas
+  disciplinas_faceis   <- disciplinas_todas
+}
+
+```
+
+```         
+• Quem é o professor mais difícil? 
+```
+
+```{r}
+professores_dificeis
+```
+
+```         
+• Quem é o professor mais fácil? 
+```
+
+```{r}
+professores_faceis
+```
+
+```         
+• Qual é a disciplina mais difícil? 
+```
+
+```{r}
+disciplinas_dificeis
+```
+
+```         
+• Qual é a disciplina mais fácil?
+```
+
+```{r}
+disciplinas_faceis
+```
+
+4.  Desconecte do banco de dados.
+
+```{r}
+dbDisconnect(conn)
+```
+
