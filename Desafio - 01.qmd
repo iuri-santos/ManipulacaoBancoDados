@@ -1,0 +1,50 @@
+---
+title: "Desadio - 01"
+author: "Iuri Santos Oliveira"
+format: html
+editor: visual
+---
+
+## Atividade
+
+```{r}
+library(readr)
+#library(reticulate)
+#virtualenv_create("env_me315")
+#use_virtualenv("env_me315")
+#py_install("pandas", envname = "env_me315")
+```
+
+```{r}
+inicio <- Sys.time()
+
+flights <- read.csv(unz('../dados/flights.csv.zip', 'flights.csv'))
+
+fim <- Sys.time()
+
+fim - inicio
+```
+
+```{r}
+inicio <- Sys.time()
+
+flights1 <- read_csv('../dados/flights.csv.zip', 'flights.csv')
+
+fim <- Sys.time()
+
+fim - inicio
+```
+
+```{python}
+import pandas as pd
+import time
+
+ini = time.time()
+
+flights3 = pd.read_csv("../dados/flights.csv.zip",compression="zip",header=0,sep=",", low_memory=False)
+
+fim = time.time()
+
+fim - ini
+
+```
