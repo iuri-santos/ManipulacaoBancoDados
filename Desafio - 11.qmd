@@ -1,0 +1,208 @@
+---
+title: "Desafio - 11"
+author: "Iuri Santos Oliveira"
+format: html
+editor: visual
+---
+
+```{r}
+data_hora_geracao <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+cat("Relatório gerado em:", data_hora_geracao, "\n\n")
+```
+
+# Conjunto de Dados
+
+O conjunto de dados “Renda Adulta” contém informações demográficas e econômicas de indivíduos, que são utilizadas para prever se um indivíduo ganha mais ou menos de \$50.000 por ano.
+
+```{python}
+#!pip install plotnine
+```
+
+## Atividade
+
+1.  Utilizando o arquivo `renda_adulta.csv` e sabendo que ele não possui cabeçalho, faça a importação do banco de dados utilizando os nomes das colunas conforme apresentado acima e na sequência ali indicada. No momento da importação do arquivo, você deve, também, indicar os tipos de cada uma das colunas. Utilize o fato de que o símbolo ? representa valores faltantes.
+
+```{python}
+import polars as pl
+import plotnine as p9
+
+# Definir nomes das colunas
+nomescol = [
+    "age", "workclass", "fnlwgt", "education", "education-num",
+    "marital-status", "occupation", "relationship", "race", "sex",
+    "capital-gain", "capital-loss", "hours-per-week", "native-country", "income"
+]
+
+# Definir tipos das colunas
+tiposcol = {
+    "age": pl.Int64,
+    "workclass": pl.Utf8,
+    "fnlwgt": pl.Int64,
+    "education": pl.Utf8,
+    "education-num": pl.Int64,
+    "marital-status": pl.Utf8,
+    "occupation": pl.Utf8,
+    "relationship": pl.Utf8,
+    "race": pl.Utf8,
+    "sex": pl.Utf8,
+    "capital-gain": pl.Int64,
+    "capital-loss": pl.Int64,
+    "hours-per-week": pl.Int64,
+    "native-country": pl.Utf8,
+    "income": pl.Utf8
+}
+
+# Importar o arquivo CSV
+df = pl.read_csv(
+    "../dados/renda_adulta.csv.gz",
+    has_header=False, # Indica que o arquivo CSV NÃO tem uma linha de cabeçalho
+    new_columns=nomescol,
+    dtypes=tiposcol,
+    null_values=["?", " ?"]  # Tratar as (? ) como valores faltantes
+)
+
+# Remover espaços em branco das colunas de texto
+for col in df.columns:
+    if df[col].dtype == pl.Utf8:
+        df = df.with_columns(pl.col(col).str.strip_chars())
+
+df.head()
+```
+
+2.  Apresente os tipos de cada uma das coluna.
+
+```{python}
+for col in df.columns:
+    print(f"{col:20} -> {df[col].dtype}")
+print()
+```
+
+3.  Apresente as dimensões da tabela de dados.
+
+```{python}
+linhas, colunas = df.shape
+print(f"Dimensões: {linhas} x {colunas}\n")
+```
+
+4.  Quantas pessoas recebem acima de \$50.000 e quantas pessoas recebem abaixo deste limiar?
+
+```{python}
+acima_50k = df.filter(pl.col("income") == ">50K").height
+abaixo_50k = df.filter(pl.col("income") == "<=50K").height
+print(f"Pessoas com renda > $50.000: {acima_50k}")
+print(f"Pessoas com renda <= $50.000: {abaixo_50k}")
+```
+
+5.  Crie um objeto chamado `renda_longo`, no qual você transforma as colunas `capital-gain` e `capital-loss` (formato wide) para formato longo. Os valores destas variáveis devem ser armazenados numa nova coluna chamada `Valor` e os tipos de valores (`gain` e `loss`) devem ser armazenados numa coluna chamada `tipo`.
+
+```{python}
+renda_longo = df.melt( # Converte colunas em linhas
+    id_vars=[col for col in df.columns if col not in ["capital-gain", "capital-loss"]], # Mantém TODAS as colunas EXCETO "capital-gain" e "capital-loss" como identificadores
+    value_vars=["capital-gain", "capital-loss"], #Especifica que "capital-gain" e "capital-loss" serão transformadas em linhas
+    variable_name="tipo", # Cria uma nova coluna chamada "tipo" que dirá se é "gain" ou "loss"
+    value_name="Valor" # Cria uma coluna "Valor" com os valores numéricos
+)
+
+# Remove o prefixo "capital-" da coluna "tipo"
+renda_longo = renda_longo.with_columns(
+    pl.col("tipo").str.replace("capital-", "")
+)
+
+renda_longo.head(10)
+```
+
+6.  Quais são as médias de horas trabalhadas por classe salarial?
+
+```{python}
+media_horas = df.group_by("income").agg(
+    pl.col("hours-per-week").mean()#Para cada grupo, calcula a média da coluna "hours-per-week"
+    .alias("media_horas") # Renomeia a coluna resultante para "media_horas"
+    ).sort("income") # Ordena o resultado pela coluna "income"
+
+print(media_horas)
+```
+
+7.  Se cada linha representa uma pessoa, quantas pessoas foram amostradas em cada profissão?
+
+```{python}
+pessoas_por_profissao = df.group_by("occupation").agg(
+    pl.count() # Realiza a contagem para cada profissão
+    .alias("quantidade")
+).sort("quantidade", descending=True) # Ordena de forma decrescente
+
+print(pessoas_por_profissao)
+```
+
+8.  Crie um gráfico de barras que apresente o número médio de horas trabalhadas semanalmente em função do nível salarial.
+
+```{python}
+# Exercício 8: Gráfico de barras - média de horas trabalhadas por nível salarial
+
+grafico = (
+    p9.ggplot(media_horas, p9.aes(x="income", y="media_horas", fill="income")) +
+    p9.geom_col() +
+    p9.labs(
+        title="Média de Horas Trabalhadas por Semana por Nível Salarial",
+        x="Nível Salarial",
+        y="Média de Horas Trabalhadas por Semana"
+    ) +
+    p9.theme_minimal() +
+    p9.theme(
+        figure_size=(8, 6),
+        legend_position="none"
+    )
+)
+
+grafico.save("grafico_horas_salario.png", dpi=300)
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+
+# Ler e exibir a imagem
+img = mpimg.imread("grafico_horas_salario.png")
+plt.figure(figsize=(10, 8))
+plt.imshow(img)
+plt.axis('off')  # Remove os eixos
+plt.tight_layout()
+plt.show()
+```
+
+9.  Desafio: existe alguma evidência de discriminação salarial entre gêneros biológicos?
+
+R: Com base nos dados, há uma diferença significativa na proporção de renda alta entre gêneros, drnfo que omens apresentam maior percentual de renda \> \$50K. Esta diferença pode ser influenciada por diversos fatores como: horas trabalhadas, tipo de ocupação, nível de educação e utros fatores socioeconômicos.
+
+```{python}
+# Distribuição de renda por gênero
+renda_por_genero = df.group_by(["sex", "income"]).agg(
+    pl.count().alias("quantidade")
+).sort(["sex", "income"])
+
+print("\nDistribuição de renda por gênero (valores absolutos):")
+print(renda_por_genero) # Distribuição de renda por gênero (valores absolutos)
+
+# Proporção de renda alta por gênero
+proporcao_renda = df.group_by("sex").agg([
+    pl.count().alias("total"),
+    (pl.col("income") == ">50K").sum().alias("renda_alta"),
+    ((pl.col("income") == ">50K").sum() / pl.count() * 100).alias("percentual_renda_alta")
+]).sort("sex")
+
+print("Proporção de pessoas com renda > $50K por gênero:")
+print(proporcao_renda)
+
+# Análise mais detalhada: média de horas trabalhadas por gênero e renda
+horas_genero_renda = df.group_by(["sex", "income"]).agg(
+    pl.col("hours-per-week").mean().alias("media_horas"),
+    pl.count().alias("n_pessoas")
+).sort(["sex", "income"])
+
+print("Média de horas trabalhadas por gênero e nível salarial:")
+print(horas_genero_renda)
+
+# Análise de educação por gênero e renda
+educacao_genero = df.group_by(["sex", "income"]).agg(
+    pl.col("education-num").mean().alias("media_educacao")
+).sort(["sex", "income"])
+
+print("Nível médio de educação por gênero e nível salarial:")
+print(educacao_genero)
+```
