@@ -1,0 +1,133 @@
+---
+title: "Desafio - 13"
+author: "Iuri Santos Oliveira"
+format: html
+editor: visual
+---
+
+```{r, echo=FALSE}
+data_hora_geracao <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+cat("Relatório gerado em:", data_hora_geracao, "\n\n")
+```
+
+## Os Dados
+
+O banco de dados para esta atividade é o “IMDb Movie Data”, que possui informações sobre filmes, atores, diretores, gêneros e outros. Para os arquivos indicados abaixo, considere que o símbolo \N representa valores faltantes. Observe com cuidado a extensão dos arquivos para uma indicação do formato do mesmo.
+
+```{r}
+library(readr)
+library(DBI)
+library(RSQLite)
+```
+
+## Atividade
+
+1.  Crie um banco de dados SQLite utilizando os 3 arquivos acima. O banco de dados deve conter as seguintes tabelas: `basics`, `ratings` e `principals`.
+```{r}
+# 1. IMPORTAR DADOS BÁSICOS DOS FILMES
+title_basics <- read_tsv("title.basics0.tsv.gz",
+                        na = "\\N",
+                        col_types = cols(
+                          tconst = col_character(),
+                          titleType = col_character(),
+                          primaryTitle = col_character(),
+                          originalTitle = col_character(),
+                          isAdult = col_integer(),
+                          startYear = col_integer(),
+                          endYear = col_integer(),
+                          runtimeMinutes = col_integer(),
+                          genres = col_character()
+                        ))
+
+# 2. IMPORTAR AVALIAÇÕES DOS FILMES
+title_ratings <- read_tsv("title.ratings.tsv.gz",
+                         na = "\\N",
+                         col_types = cols(
+                           tconst = col_character(),
+                           averageRating = col_double(),
+                           numVotes = col_integer()
+                         ))
+
+# 3. IMPORTAR ELENCO E EQUIPE TÉCNICA
+title_principals <- read_tsv("title.principals0.tsv.gz",
+                            na = "\\N",
+                            col_types = cols(
+                              tconst = col_character(),
+                              nconst = col_character(),
+                              category = col_character(),
+                              job = col_character(),
+                              characters = col_character()
+                            ))
+
+
+# Criar conexão com o banco SQLite
+con <- dbConnect(SQLite(), "imdb_database.db")
+
+# Criar tabelas no banco de dados
+dbWriteTable(con, "basics", title_basics, overwrite = TRUE)
+dbWriteTable(con, "ratings", title_ratings, overwrite = TRUE)
+dbWriteTable(con, "principals", title_principals, overwrite = TRUE)
+```
+
+2.  ( Utilizando SQL , responda): Quais são os 5 filmes com as maiores notas (`averageRating`)? Apresente uma solução capaz de desempatar os filmes baseando-se no número de votos recebidos.
+
+```{r}
+# TOP 5 FILMES COM MAIORES NOTAS (com desempate por número de votos)
+melhores_filmes <- "
+SELECT b.primaryTitle, r.averageRating, r.numVotes
+FROM basics b
+JOIN ratings r ON b.tconst = r.tconst
+WHERE b.titleType = 'movie'
+ORDER BY r.averageRating DESC, r.numVotes DESC
+LIMIT 5"
+
+top5 <- dbGetQuery(con, melhores_filmes)
+print(top5)
+```
+
+3.  ( Utilizando SQL , responda): Qual é o gênero mais frequente entre os filmes com nota maior que 8?
+
+```{r}
+# GÊNERO MAIS FREQUENTE EM FILMES COM NOTA > 8
+filmes_frequentes <- "
+WITH filmes_generos AS (
+    SELECT b.tconst, TRIM(g.value) as genero
+    FROM basics b
+    JOIN ratings r ON b.tconst = r.tconst
+    CROSS JOIN json_each('[\"' || REPLACE(b.genres, ',', '\",\"') || '\"]') g
+    WHERE b.titleType = 'movie'
+    AND r.averageRating > 8
+    AND genero != ''
+)
+SELECT genero, COUNT(*) as quantidade
+FROM filmes_generos
+GROUP BY genero
+ORDER BY quantidade DESC
+LIMIT 1"
+
+freq <- dbGetQuery(con, filmes_frequentes)
+print(freq)
+```
+
+4.  ( Utilizando SQL , responda): Quais são os 3 atores/atrizes que mais participaram de filmes com nota maior que 7.5?
+
+```{r}
+# TOP 3 ATORES/ATRIZES QUE MAIS PARTICIPARAM EM FILMES COM NOTA > 7.5
+atores <- "
+SELECT p.nconst, COUNT(*) as participacoes
+FROM principals p
+JOIN basics b ON p.tconst = b.tconst
+JOIN ratings r ON b.tconst = r.tconst
+WHERE b.titleType = 'movie'
+AND r.averageRating > 7.5
+AND p.category IN ('actor', 'actress')
+GROUP BY p.nconst
+ORDER BY participacoes DESC
+LIMIT 3"
+
+top3 <- dbGetQuery(con, atores)
+print(top3)
+
+# Fechar conexão
+dbDisconnect(con)
+```
