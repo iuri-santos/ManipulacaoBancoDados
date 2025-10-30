@@ -1,0 +1,161 @@
+---
+title: "Desafio - 14"
+format: html
+editor: visual
+---
+
+```{r, echo=FALSE}
+data_hora_geracao <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+cat("RelatC3rio gerado em:", data_hora_geracao, "\n\n")
+```
+
+## Objetivo
+
+Criar visualiza????es adequadas utilizando a biblioteca plotnine. A atividade ser?? baseada em um conjunto de dados com o qual ?? necess??rio realizar agrega????o, filtragem e transforma????o de dados antes de aplicar estrat??gias de visualiza????o.
+
+## Atividade
+
+1.  Importe o conjunto de dados diamonds, cujo arquivo est?? dispon??vel no website da disciplina.
+
+```{python}
+#!pip install plotnine
+```
+
+```{python}
+from plotnine.data import diamonds
+
+# Visualizar as primeiras linhas do dataset
+print(diamonds.head())
+```
+
+2.  Crie uma visualiza????o de dados que descreva a associa????o existente entre as vari??veis peso (carat) e pre??o (price). Que a????es voc?? tomou para garantir que voc?? produziu um gr??fico de boa qualidade? Escreva um par??grafo comunicando os seus achados.
+
+```{python}
+# ImportaC'C#o das bibliotecas
+import warnings
+warnings.filterwarnings("ignore")
+import pandas as pd
+from plotnine import ggplot, aes, geom_point, theme_minimal, labs, scale_color_manual
+from plotnine.data import diamonds
+
+# Definindo cores especC-ficas para cada corte
+cores_corte = {
+    "Ideal": "#2ca02c",       # verde
+    "Premium": "#8c564b",    # marrom
+    "Very Good": "#ffdd57",  # amarelo
+    "Good": "#9467bd",       # roxo
+    "Fair": "#1f77b4",       # azul escuro
+}
+
+# CriaC'C#o do grC!fico
+grafico = (
+    ggplot(diamonds, aes(x='carat', y='price', color='cut')) +
+    geom_point(alpha=0.5, size=1.2) +  # transparC*ncia e tamanho ajustados
+    scale_color_manual(values=cores_corte) +  # cores especC-ficas
+    theme_minimal() +
+    labs(
+        title='RelaC'C#o entre o Peso (Carat) e o PreC'o dos Diamantes',
+        subtitle='ColoraC'C#o indica o tipo de corte (cut)',
+        x='Peso (carat)',
+        y='PreC'o (USD)',
+        color='Corte'
+    )
+)
+
+# Salvar o grC!fico
+grafico.save("grafico.png")
+```
+
+```{r}
+library(knitr)
+knitr::include_graphics("grafico.png")
+```
+
+    Para garantir que o gr??fico produzido fosse de boa qualidade, fiz o seguinte: utilizei transpar??ncia (alpha=0.5) para que regi??es com alta densidade de pontos, ajustei o tamanho dos pontos (size=1.2) para n??o poluir a visualiza????o, escolhi uma paleta de cores para diferenciar os tipos de corte dos diamantes e apliquei um tema minimalista (theme_minimal) para remover elementos visuais desnecess??rios.
+    O gr??fico mostra que quanto maior o peso do diamante (carat), maior o pre??o (price), com aumento mais r??pido para diamantes maiores. O tipo de corte (cut) tamb??m influencia, com cortes de melhor qualidade apresentando pre??os mais altos para pesos semelhantes.
+
+3.  A rela????o identificada na quest??o anterior ?? a mesma rela????o presente nos diferentes cortes de diamantes? Crie uma visualiza????o que demonstre seus achados eficientemente. Descreva sua conclus??o em um par??grafo.
+
+```{python}
+import warnings
+warnings.filterwarnings("ignore")
+from plotnine import ggplot, aes, geom_point, geom_smooth, theme_minimal, labs, facet_wrap, scale_color_manual
+from plotnine.data import diamonds
+
+# Definindo cores especC-ficas para cada corte
+cores_corte = {
+    "Ideal": "#2ca02c",       # verde
+    "Premium": "#8c564b",    # marrom
+    "Very Good": "#ffdd57",  # amarelo
+    "Good": "#9467bd",       # roxo
+    "Fair": "#1f77b4",       # azul escuro
+}
+
+grafico_facetas = (
+    ggplot(diamonds, aes(x='carat', y='price')) +
+    geom_point(aes(color='cut'), alpha=0.4, size=1.5) +
+    geom_smooth(aes(group=1), method='lm', se=False, color='black') +
+    facet_wrap('~cut') +
+    scale_color_manual(values=cores_corte) +
+    theme_minimal() +
+    labs(
+        title='RelaC'C#o entre Peso e PreC'o por Corte de Diamante',
+        x='Peso (carat)',
+        y='PreC'o (USD)',
+        color='Corte'
+    )
+)
+
+grafico_facetas.save("grafico_facetas.png")
+```
+
+```{r}
+library(knitr)
+knitr::include_graphics("grafico_facetas.png")
+```
+
+    A rela????o positiva entre peso e pre??o se mant??m em todos os cortes de diamante: diamantes maiores tendem a custar mais. Por??m, h?? diferen??as de n??vel de pre??o entre os cortes: cortes de melhor qualidade (Ideal e Premium) apresentam pre??os mais altos para pesos semelhantes, enquanto cortes como Fair t??m pre??os mais baixos. Assim, o corte influencia o valor absoluto, mas n??o altera a tend??ncia geral entre peso e pre??o.
+
+4.  Crie uma visualiza????o que mostre a rela????o entre pre??o e peso do diamante, considerando as diferentes combina????es de qualidade de corte, cor e clareza do diamante. Quais foram as dificuldades encontradas? A rela????o entre pre??o e peso ?? a mesma para diferentes configura????es de diamantes?
+
+```{python}
+import warnings
+warnings.filterwarnings("ignore")
+from plotnine import ggplot, aes, geom_point, geom_smooth, theme_minimal, labs, facet_grid, scale_color_manual
+from plotnine.data import diamonds
+
+# Cores especC-ficas para o corte
+cores_corte = {
+    "Ideal": "#2ca02c",       # verde
+    "Premium": "#8c564b",    # marrom
+    "Very Good": "#ffdd57",  # amarelo
+    "Good": "#9467bd",       # roxo
+    "Fair": "#1f77b4",       # azul escuro
+}
+
+# GrC!fico explorando cut, color e clarity
+grafico_completo = (
+    ggplot(diamonds, aes(x='carat', y='price', color='cut')) +
+    geom_point(alpha=0.3, size=1) +  # pontos semi-transparentes
+    geom_smooth(aes(group=1), method='lm', se=False, color='black') +  # linha de tendC*ncia preta
+    facet_grid('clarity~color') +  # linhas = clarity, colunas = color
+    scale_color_manual(values=cores_corte) +
+    theme_minimal() +
+    labs(
+        title='PreC'o vs Peso dos Diamantes por Corte, Cor e Clareza',
+        x='Peso (carat)',
+        y='PreC'o (USD)',
+        color='Corte'
+    )
+)
+
+grafico_completo.save("grafico_completo.png")
+```
+
+```{r}
+library(knitr)
+knitr::include_graphics("grafico_completo.png")
+```
+
+    As dificultades encontradas foram: O grande n??mero de combina????es de corte, cor e clareza tornou o gr??fico sobrecarregado, dificultando a leitura. Muitos pontos se sobrep??em, exigindo transpar??ncia (alpha) para melhor visualiza????o. Al??m disso, algumas facetas t??m poucos diamantes, tornando certas subplots quase vazias.
+    A rela????o positiva entre peso (carat) e pre??o (price) se mant??m em quase todas as combina????es: diamantes maiores tendem a custar mais. Entretanto, o n??vel absoluto de pre??o varia conforme corte, cor e clareza. Diamantes de melhor corte, cor rara e maior clareza t??m pre??os significativamente mais altos para pesos semelhantes. Portanto, a tend??ncia geral de aumento do pre??o com o peso ?? similar, mas os valores absolutos diferem bastante entre as diferentes configura????es de diamante.
