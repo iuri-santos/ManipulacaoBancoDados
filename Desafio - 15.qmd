@@ -1,0 +1,36 @@
+---
+title: "Desafio - 15"
+author: "Iuri Santos Oliveira"
+format: html
+editor: visual
+---
+
+```{r, echo=FALSE}
+data_hora_geracao <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+cat("RelatC3rio gerado em:", data_hora_geracao, "\n\n")
+```
+
+```{r}
+library(JuliaCall)
+Sys.setenv(JULIA_HOME = "C:/Users/ra194610/AppData/Local/Programs/Julia-1.12.1/bin")
+julia_setup()
+```
+ 
+```{julia}
+using Base.Threads
+
+function operacao_pesada(i)
+    return sum(sin.(1:1000)) * i^2  # Operação computacionalmente intensiva
+end
+
+# Serial: executa sequencialmente em um único núcleo
+@time [operacao_pesada(i) for i in 1:1000000]
+
+# Paralelo: divide a carga entre múltiplos threads
+@time @threads for i in 1:1000000
+    operacao_pesada(i)
+end
+```
+
+
+
